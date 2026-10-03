@@ -30,6 +30,28 @@ typedef struct RinWireReconnectPolicy {
     uint8_t has_clock_sample;
 } RinWireReconnectPolicy;
 
+/* Validate caller-owned mutable state before it drives a retry transition.
+ * A corrupted enum, budget, backoff range, attempt count, or clock flag must
+ * not become an implicit reconnect or busy-loop authorization. */
+static inline int rin_wire_reconnect_policy_valid(
+    const RinWireReconnectPolicy* policy)
+{
+    return policy != NULL && policy->max_attempts != 0u &&
+           policy->initial_backoff_ms != 0u &&
+           policy->initial_backoff_ms <= policy->max_backoff_ms &&
+           policy->state <= RIN_WIRE_RECONNECT_FAILED &&
+           policy->attempts <= policy->max_attempts &&
+           policy->has_clock_sample <= 1u;
+}
+
+static inline void rin_wire_reconnect_policy_fail_closed(
+    RinWireReconnectPolicy* policy)
+{
+    if (policy == NULL) return;
+    policy->state = RIN_WIRE_RECONNECT_FAILED;
+    policy->retry_at_ms = UINT64_MAX;
+}
+
 /* Returns zero for an unusable policy configuration. */
 static inline int rin_wire_reconnect_init(
     RinWireReconnectPolicy* policy, uint32_t max_attempts,
@@ -53,6 +75,10 @@ static inline void rin_wire_reconnect_observe_clock(
     RinWireReconnectPolicy* policy, uint64_t now_ms)
 {
     if (policy == NULL) return;
+    if (!rin_wire_reconnect_policy_valid(policy)) {
+        rin_wire_reconnect_policy_fail_closed(policy);
+        return;
+    }
     if (policy->has_clock_sample && now_ms < policy->last_now_ms)
         policy->retry_at_ms = now_ms;
     policy->last_now_ms = now_ms;
@@ -64,6 +90,7 @@ static inline int rin_wire_reconnect_begin(
 {
     if (policy == NULL) return 0;
     rin_wire_reconnect_observe_clock(policy, now_ms);
+    if (!rin_wire_reconnect_policy_valid(policy)) return 0;
     if (policy->state == RIN_WIRE_RECONNECT_FAILED ||
         (policy->state == RIN_WIRE_RECONNECT_WAITING &&
          now_ms < policy->retry_at_ms) ||
@@ -82,7 +109,12 @@ static inline int rin_wire_reconnect_begin(
 static inline int rin_wire_reconnect_authenticated(
     RinWireReconnectPolicy* policy)
 {
-    if (policy == NULL || policy->state != RIN_WIRE_RECONNECT_CONNECTING)
+    if (policy == NULL) return 0;
+    if (!rin_wire_reconnect_policy_valid(policy)) {
+        rin_wire_reconnect_policy_fail_closed(policy);
+        return 0;
+    }
+    if (policy->state != RIN_WIRE_RECONNECT_CONNECTING)
         return 0;
     policy->state = RIN_WIRE_RECONNECT_AUTHENTICATED;
     return 1;
@@ -95,7 +127,8 @@ static inline uint64_t rin_wire_reconnect_backoff_ms(
 {
     uint64_t delay;
     uint32_t remaining;
-    if (policy == NULL || policy->attempts == 0u) return 0u;
+    if (!rin_wire_reconnect_policy_valid(policy) ||
+        policy->attempts == 0u) return 0u;
     delay = policy->initial_backoff_ms;
     remaining = policy->attempts - 1u;
     while (remaining != 0u && delay < policy->max_backoff_ms) {
@@ -134,6 +167,7 @@ static inline int rin_wire_reconnect_failure(
     uint64_t delay;
     if (policy == NULL) return 0;
     rin_wire_reconnect_observe_clock(policy, now_ms);
+    if (!rin_wire_reconnect_policy_valid(policy)) return 0;
     if (policy->state != RIN_WIRE_RECONNECT_CONNECTING &&
         policy->state != RIN_WIRE_RECONNECT_AUTHENTICATED)
         return 0;
@@ -151,19 +185,21 @@ static inline int rin_wire_reconnect_failure(
 static inline RinWireReconnectState rin_wire_reconnect_state(
     const RinWireReconnectPolicy* policy)
 {
-    return policy == NULL ? RIN_WIRE_RECONNECT_FAILED : policy->state;
+    return !rin_wire_reconnect_policy_valid(policy)
+        ? RIN_WIRE_RECONNECT_FAILED : policy->state;
 }
 
 static inline uint32_t rin_wire_reconnect_attempts(
     const RinWireReconnectPolicy* policy)
 {
-    return policy == NULL ? 0u : policy->attempts;
+    return !rin_wire_reconnect_policy_valid(policy) ? 0u : policy->attempts;
 }
 
 static inline uint64_t rin_wire_reconnect_retry_at_ms(
     const RinWireReconnectPolicy* policy)
 {
-    return policy == NULL ? UINT64_MAX : policy->retry_at_ms;
+    return !rin_wire_reconnect_policy_valid(policy)
+        ? UINT64_MAX : policy->retry_at_ms;
 }
 
 #ifdef __cplusplus

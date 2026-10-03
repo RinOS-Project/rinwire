@@ -12,7 +12,7 @@ RinWire provides small inline validators for common IPC wire-record, capability-
 | ownership | Records, token bytes, strings, and reconnect state are caller-owned. The helpers do not retain passed pointers; callers remain responsible for lifetimes and schema storage. |
 | thread-safety | Pure validation calls are reentrant. The one-shot capability consume helper uses an atomic compare-and-exchange on caller-owned state; concurrent mutation of other state requires caller synchronization. |
 | limits | Capability token material is bounded to 4096 bytes. Other limits are supplied by each call's capacities and service schema. |
-| errors | Validation functions return explicit status values or booleans for invalid shape, mismatched generation, expiry, revocation, consumption, stale responses, and invalid arguments. Callers must reject failure. |
+| errors | Validation functions return explicit status values or booleans for invalid shape, mismatched generation, expiry, revocation, consumption, stale responses, invalid arguments, and corrupted reconnect policy state. Reconnect transitions fail closed instead of treating malformed caller-owned state as a retry authorization. |
 | ABI stability | These are inline C headers; there is no separately versioned binary ABI. Struct layout and compiler settings must match between producer and consumer. |
 | security | Structural checks are only one layer. Callers must separately authenticate the peer, verify token authenticity, enforce service authorization, and validate service-specific contents. |
 | build | Header-only integration; include the public headers from a RinOS consumer. No separate build/install command is documented. |
