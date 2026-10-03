@@ -7,6 +7,10 @@ lower bound. A caller-corrupted negative `RinWireReconnectState` therefore
 fails closed instead of being accepted by an upper-bound-only check and
 driving another retry transition.
 
+Terminal retry exhaustion also publishes `UINT64_MAX` as the retry deadline,
+including the normal max-attempt and non-retryable failure paths. Callers do
+not receive a stale finite deadline together with the `FAILED` state.
+
 ## Public API contract
 
 | Requirement | Contract |

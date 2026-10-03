@@ -100,6 +100,7 @@ static inline int rin_wire_reconnect_begin(
         return 0;
     if (policy->attempts >= policy->max_attempts) {
         policy->state = RIN_WIRE_RECONNECT_FAILED;
+        policy->retry_at_ms = UINT64_MAX;
         return 0;
     }
     ++policy->attempts;
@@ -174,6 +175,7 @@ static inline int rin_wire_reconnect_failure(
         return 0;
     if (!retryable || policy->attempts >= policy->max_attempts) {
         policy->state = RIN_WIRE_RECONNECT_FAILED;
+        policy->retry_at_ms = UINT64_MAX;
         return 0;
     }
     delay = rin_wire_reconnect_backoff_ms(policy);
