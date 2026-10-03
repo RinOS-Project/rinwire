@@ -2,6 +2,11 @@
 
 RinWire provides small inline validators for common IPC wire-record, capability-lifetime, and reconnect-policy invariants.
 
+Reconnect policy admission validates the complete enum range, including the
+lower bound. A caller-corrupted negative `RinWireReconnectState` therefore
+fails closed instead of being accepted by an upper-bound-only check and
+driving another retry transition.
+
 ## Public API contract
 
 | Requirement | Contract |

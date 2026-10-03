@@ -39,6 +39,7 @@ static inline int rin_wire_reconnect_policy_valid(
     return policy != NULL && policy->max_attempts != 0u &&
            policy->initial_backoff_ms != 0u &&
            policy->initial_backoff_ms <= policy->max_backoff_ms &&
+           policy->state >= RIN_WIRE_RECONNECT_DISCONNECTED &&
            policy->state <= RIN_WIRE_RECONNECT_FAILED &&
            policy->attempts <= policy->max_attempts &&
            policy->has_clock_sample <= 1u;
