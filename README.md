@@ -25,4 +25,4 @@ not receive a stale finite deadline together with the `FAILED` state.
 | ABI stability | These are inline C headers; there is no separately versioned binary ABI. Struct layout and compiler settings must match between producer and consumer. |
 | security | Structural checks are only one layer. Callers must separately authenticate the peer, verify token authenticity, enforce service authorization, and validate service-specific contents. |
 | build | Header-only integration; include the public headers from a RinOS consumer. No separate build/install command is documented. |
-| test | No standalone test target or command is documented for this header-only repository. Validate the owning IPC service contract in RinOS. |
+| test | RinOS's public sanitizer runner includes the header-only `rinwire` target. Generate `build/fuzz/corpus/rinwire` with `python fuzz/prepare_untrusted_parser_corpus.py --output build/fuzz/corpus`, then run `python scripts/run_common_sanitizers.py --target rinwire --smoke` for the non-fuzzer host smoke path. The target exercises only caller-owned public helpers; it does not authenticate peers or invoke a service. |
